@@ -50,7 +50,7 @@ So to wire it all up:
 Confirm the physical serial port by running the command `dmesg | grep tty`. As stated previously, it should return something like `/dev/ttyS1` if using a serial com port, or something like `/dev/ttyUSB0` if using a 485/USB serial converter.
 
 ## The Solarmax Protocol
-Solarmax (http://http://www.solarmax.com/) supply supply retail and commercial grade Solar PV inverters. This python script is designed to collect data from Solarmax inverters, using RS485 connected devices. Contact us to help you with adapting this script to collect from other Solarmax inverters.
+Solarmax (http://www.solarmax.com/) supply supply retail and commercial grade Solar PV inverters. This python script is designed to collect data from Solarmax inverters, using RS485 connected devices. Contact us to help you with adapting this script to collect from other Solarmax inverters.
 
 ## How to use the script
 On a raspberry Pi, or other Linux machines (arm, intel, mips or whetever), make sure Python is installed (which it should be). Then install the `pyserial` dependancies as follows:
