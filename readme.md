@@ -5,13 +5,13 @@ The purpose of this project is to collect from Solarmax Inverters and send the d
 ## How does it work
 This application is written in Python, to query Solarmax inverters connected via RS485. This application will query 1 or more connected inverters at regular intervals. Data will be written to log files on disk in a directory specified in the script. Usage and command line parameters are as follows:
 
-# This script will query a Solarmax inverter. Usage: python solarmax-ardexa.py {serial device} {Start Address} {End Address} {log directory} {Comma separated list of values}, where...
-# {serial device} = ..something lie: /dev/ttyS0
-# {Start Address} = start range 1-32 of the RS485 address
-# {End Address} = end range 1-32 of the RS485 address
-# {log directory} = logging directory
-# {Comma separated list of values} = list of "query_dict" values below as a single string with no spaces, like: KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
-# eg: python solarmax-ardexa.py /dev/ttyS0 1 5 /opt/ardexa/solarmax/logs KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
+This script will query a Solarmax inverter. Usage: python solarmax-ardexa.py {serial device} {Start Address} {End Address} {log directory} {Comma separated list of values}, where...
+{serial device} = ..something lie: /dev/ttyS0
+{Start Address} = start range 1-32 of the RS485 address
+{End Address} = end range 1-32 of the RS485 address
+{log directory} = logging directory
+{Comma separated list of values} = list of "query_dict" values below as a single string with no spaces, like: KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
+eg: python solarmax-ardexa.py /dev/ttyS0 1 5 /opt/ardexa/solarmax/logs KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
 
 The debug level can be changed at line 38 or so of the python script (`solarmax-ardexa.py`)
 ```
