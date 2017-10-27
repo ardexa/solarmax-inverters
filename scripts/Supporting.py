@@ -13,11 +13,12 @@
 # IN THE SOFTWARE.
 #
 
-# Supporting script Vers: 1.4.2
-# Dated 30 Aug 2017
+# Supporting script Vers: 1.4.9
+# Dated 10 Oct 2017
 
 import os
 import sys
+import time
 
 #	This function logs a line of data to both a 'log' file, and a 'latest' file
 #	The 'latest' file is optional, and is sent to this function as a boolean value via  
@@ -36,7 +37,7 @@ import sys
 #
 #	For both the 'log' and 'latest' files, a header line will be written if a new file is created
 #	Please note that a header must start with the '#' symbol, so the Ardexa agent can interpret this line as a header
-# entry, and will not send it to the cloud
+#  entry, and will not send it to the cloud
 #
 def write_log(log_directory, log_filename, header, logline, debug, require_latest, latest_directory, latest_filename):
 	create_new_file = False
@@ -95,12 +96,16 @@ def check_pidfile(pidfile, debug):
 	# Check PID exists and see if the PID is running
 	if os.path.isfile(pidfile):
 		pidfile_handle = open(pidfile, 'r')
-		pid = int(pidfile_handle.read())
-		pidfile_handle.close()
-		if (check_pid(pid, debug)):
-			return True
-		else:
-			# PID is not active, remove the PID file
+		# try and read the PID file. If no luck, remove it
+		try:
+			pid = int(pidfile_handle.read())
+			pidfile_handle.close()
+			if (check_pid(pid, debug)):
+				return True
+			else:
+				# PID is not active, remove the PID file
+				os.unlink(pidfile)
+		except:
 			os.unlink(pidfile)
 
 	# Create a PID file, to ensure this is script is only run once (at a time)
@@ -138,4 +143,17 @@ def check_args(number_of_args):
 		# return the arguments
 		return sys.argv
 
+# This function just gets the time
+def get_datetime():
+	dt = time.strftime('%Y-%m-%dT%H:%M:%S%z')
+	return dt
+
+
+# Convert a string to INT
+def convert_to_int(value):
+	try:
+		ret_val = int(value)
+		return True, ret_val
+	except ValueError:
+		return False, -1
 

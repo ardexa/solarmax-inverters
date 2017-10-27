@@ -35,13 +35,10 @@ import os
 from Supporting import *
 
 # Change these 3 settings to suit your installation, if required
-DEBUG = 0
-#####################REQUIRED_VALUES = ['KDY','IL1','IL2','IL3','PAC','PDC','TNF','TKK','SYS','KHR', 'KMT', 'KLM', 'UL1', 'UL2', 'UL3', 'PRL']
-
 PIDFILE = 'solarmax-ardexa.pid'
 USAGE = "python solarmax-ardexa.py {serial device} {start address} {end address} {log directory} {Comma separated list of values} eg; python solarmax-ardexa.py /dev/ttyS1 1 13 /opt/ardexa/solarmax KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL"
 
-query_dict = {	'KDY' : 'Energy today (Wh)', 'KDL' : 'Energy yesterday (Wh)', 'KYR' : 'Energy this year (kWh)', 'KLY' : 'Energy last year (kWh)',
+query_dict = {	'KDY' : 'Energy today (kWh)', 'KDL' : 'Energy yesterday (Wh)', 'KYR' : 'Energy this year (kWh)', 'KLY' : 'Energy last year (kWh)',
 					'KMT' : 'Energy this month (kWh)', 'KLM' : 'Energy last month (kWh)', 'KT0' : 'Total Energy(kWh)', 'IL1' : 'AC Current Phase 1 (A)' , 
 					'IL2' : 'AC Current Phase 2 (A)', 'IL3' : 'AC Current Phase 3 (A)', 'IDC' : 'DC Current (A)', 'PAC' : 'AC Power (W)',
 					'PDC' : 'DC Power (W)', 'PRL' : 'Relative power (%)', 'TNP' : 'Grid period duration',	
@@ -120,7 +117,7 @@ def retrieve_required_values(required_values_csv):
 
 
 # This will write a line to the base_directory
-def write_line(line, inverter_addr, base_directory, header_line):
+def write_line(line, inverter_addr, base_directory, header_line, debug):
 
 	line = line + '\n'
 
@@ -128,7 +125,7 @@ def write_line(line, inverter_addr, base_directory, header_line):
 	date_str = (time.strftime("%d-%b-%Y"))
 	log_filename = date_str + ".csv"
 	log_directory = os.path.join(base_directory, inverter_addr)
-	write_log(log_directory, log_filename, header_line, line, DEBUG, True, log_directory, "latest.csv")
+	write_log(log_directory, log_filename, header_line, line, debug, True, log_directory, "latest.csv")
 
 	return True
 
@@ -136,13 +133,12 @@ def write_line(line, inverter_addr, base_directory, header_line):
 # Some of the items need to be converted
 def convert_value(key,value):
 
-	# IF its a status code, strip out the first number and find the stua description
-	if (key == 'SYS'):
+	# If its an alarm code, strip out the first number and find the alarm description
+	if (key == 'SAL'):
 		# Strip out the first CSV
-		sys,temp = value.split(',')
-		value_int = int(sys, 16)
+		value_int = int(value, 16)
 		# then get the string
-		return status_codes[value_int]
+		return alarm_codes[value_int]
 	
 	# If its a current reading or frequency, divide by 100 to get Amps
 	elif ((key == 'IL2') or (key == 'IL1') or (key == 'IL3') or (key == 'IDC') or
@@ -152,7 +148,8 @@ def convert_value(key,value):
 		return (str(value_fl))
 
 	# If its a voltage reading or frequency, divide by 10 to get Volts
-	elif ((key == 'UL2') or (key == 'UL1') or (key == 'UL3')):
+	# Same for "energy today"
+	elif ((key == 'UL2') or (key == 'UL1') or (key == 'UL3') or (key == 'KDY')):
 		value_int = int(value, 16)
 		value_fl = float(value_int)/10.0 
 		return (str(value_fl))
@@ -174,7 +171,7 @@ def convert_value(key,value):
 # This function reads the Solarmax codes frecevied from the inverter
 # required_itmes = LIST
 # raw_line = STRING
-def read_values(required_items, raw_line):
+def read_values(required_items, raw_line, debug):
 	# For each 'required_item, find it in the raw_line
 	# and strip out everything up to a semi-colon or pipe symbol
 	errors = False
@@ -214,7 +211,7 @@ def read_values(required_items, raw_line):
 
 			# now copy the value
 			converted = convert_value(value,raw_line[start:end])
-			if (DEBUG > 1):
+			if (debug > 1):
 				print "VALUE: ", value," PIPE: ",found_pipe," SEMI: ",found_semi, "RAW: ", raw_line[start:end], " ITEM: ",converted
 			
 			data_list.append(converted)
@@ -226,7 +223,7 @@ def read_values(required_items, raw_line):
 	# NOTE: Don't need the csv module, since the data is all controlled by this function
 	inverter_line = ','.join(data_list)
 
-	if (DEBUG > 1):
+	if (debug > 1):
 		print "Raw line: ",inverter_line, " and errors: ",errors
 
 	return inverter_line, errors
@@ -241,7 +238,7 @@ def get_valid_and_header_items(code_list):
 	# Check that each type is valid
 	for value in required_values:
 		if value not in query_dict:
-			if (DEBUG > 1):
+			if (debug > 1):
 				print "Value: ",value," not known"
 			error = True
 		else:
@@ -252,7 +249,7 @@ def get_valid_and_header_items(code_list):
 		return False,""
 
 	# If no errors, then return a header list
-	header_line = ','.join(header_list) + "\n"
+	header_line = "# Datetime, " + ','.join(header_list) + "\n"
 
 	return True, header_line
 
@@ -327,14 +324,14 @@ def close_serial_port(serial_port):
 	serial_port.close()
 
 # Send the query to the inverter and read the response
-def read_inverter(query_string, serial_port):
+def read_inverter(query_string, serial_port, debug):
 
 	# Flush the inputs and outputs
 	serial_port.flushInput()
 	serial_port.flushOutput()
 
 	# Encode the command
-	if (DEBUG > 1):
+	if (debug > 1):
 		print "Sending the command to the RS485 port: ",query_string 
 	serial_port.write(query_string)
 
@@ -346,7 +343,7 @@ def read_inverter(query_string, serial_port):
 	while serial_port.inWaiting() > 0:
 		response += serial_port.readline()
 
-	if (DEBUG > 1):
+	if (debug > 1):
 			print "Received the following data: ",response
 
 	return response
@@ -365,10 +362,41 @@ if (len(arguments) < 5):
 	sys.exit(3)
 
 serial_device = arguments[1]
-start_address = arguments[2]
-end_address = arguments[3]
-log_directory = arguments[4]
+addresses = arguments[2]
+log_directory = arguments[3]
+debug_str = arguments[4]
 required_values_csv = arguments[5]
+
+# Convert debug
+retval, debug = convert_to_int(debug_str)
+if (not retval):
+	print "Debug needs to be an integer number. Value entered: ",debug_str
+	sys.exit(3)
+
+address_list = []
+# Check the addresses are separated by commas or '-' (but not both)
+# Then come up with a list of addresses
+if (addresses.find('-') != -1):
+	# Addresses is a range
+	start_addr_str, end_addr_str = addresses.split('-')
+	try:
+		start_addr = int(start_addr_str)
+		end_addr = int(end_addr_str)
+	except:
+		print "Start and stop address must be numbers. Usage: ", USAGE
+		sys.exit(5)
+	for (inverter_addr) in range(start_addr, end_addr+1):
+		address_list.append(inverter_addr)
+# If it contains one ore more commas, its a csv of addresses
+elif (addresses.find(',') != -1):
+	address_list_str = addresses.split(",")
+	for inverter_addr_str in address_list_str:
+		try:
+			inverter_addr = int(inverter_addr_str)
+		except:
+			print "RS485 Inverter addresses must be numbers. Usage: ", USAGE
+			sys.exit(6)
+		address_list.append(inverter_addr)
 
 
 # If the logging directory doesn't exist, create it
@@ -377,22 +405,15 @@ if (not os.path.exists(log_directory)):
 
 # Check that no other scripts are running
 pidfile = os.path.join(log_directory, PIDFILE)
-if check_pidfile(pidfile, DEBUG):
+if check_pidfile(pidfile, debug):
 	print "This script is already running"
 	sys.exit(1)
 
 # if any args are empty, exit with error
-if ((not serial_device) or (not start_address) or (not end_address) or (not log_directory)):
+if ((not serial_device) or (not addresses)):
 	print "The arguments cannot be empty. Usage: ", USAGE
-	sys.exit(4)
+	sys.exit(8)
 
-# Convert start and stop addresses to INTs
-try:
-	start_addr = int(start_address)
-	end_addr = int(end_address)
-except:
-	print "Start and stop address must be numbers. Usage: ", USAGE
-	sys.exit(5)
 
 # The required values are derived from the list att the top of this script
 required_values = retrieve_required_values(required_values_csv)
@@ -410,17 +431,17 @@ serial_port = open_serial_port(serial_device)
 
 # This will check each inverter. If a bad line is received, it will try one more time
 # Sometimes the inverters take 2 goes at getting a good line from the RS485 line
-for (inverter_addr) in range(start_addr, end_addr+1):
+for (inverter_addr) in address_list:
 	count = 2
 	# convert an address less than 10 to a leading zero
 	# inverter address passed as an INT
 	query_string = construct_inverter_query(inverter_addr, required_values)
 
 	while (count >= 1):
-		result = read_inverter(query_string, serial_port)
-		inverter_line, errors = read_values(required_values, result)
+		result = read_inverter(query_string, serial_port, debug)
+		inverter_line, errors = read_values(required_values, result, debug)
 		if (errors == False):
-			success = write_line(inverter_line, str(inverter_addr), log_directory, header_line)
+			success = write_line(inverter_line, str(inverter_addr), log_directory, header_line, debug)
 			if (success == True):
 				break
 		count = count - 1
@@ -430,7 +451,7 @@ for (inverter_addr) in range(start_addr, end_addr+1):
 close_serial_port(serial_port)
 
 elapsed_time = time.time() - start_time
-if (DEBUG > 0):
+if (debug > 0):
 	print "This request took: ",elapsed_time, " seconds."
 
 # Remove the PID file	
