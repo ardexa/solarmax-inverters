@@ -13,14 +13,14 @@
 # IN THE SOFTWARE.
 #
 
-# This script will query a Solarmax inverter. Usage: python solarmax-ardexa.py {serial device} {Start Address} {End Address} {log directory} {Comma separated list of values}, where...
-# {serial device} = ..something lie: /dev/ttyS0
-# {Start Address} = start range 1-32 of the RS485 address
-# {End Address} = end range 1-32 of the RS485 address
-# {log directory} = logging directory
-# {Comma separated list of values} = list of "query_dict" values below as a single string with no spaces, like: KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
-# eg: python solarmax-ardexa.py /dev/ttyS0 1 5 /opt/ardexa/solarmax/logs KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
-# eg; ./solarmax-ardexa.py /dev/ttyS0 1 5 /opt/ardexa/solarmax/logs KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
+# Usage: sudo python solarmax-ardexa.py {serial device} {Addresses} {log directory} {debug type} {required_csv_value}, where...
+# 	- {serial device} = ..something lie: /dev/ttyS0
+# 	- {Addresses} = As a range (eg; 1-32) or a list (eg; 2,5,7,9) of the RS485 address
+# 	- {log directory} = logging directory
+# 	- {debug type} = 0 (no messages, except errors), 1 (discovery messages) or 2 (all messages)
+# 	- {required_csv_value} = KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL (these are acronyms which detail which values to call down from the inverter. 
+# The actual values which are available are shown in Lin 40 of the script `solarmax-ardexa.py`
+# 	- eg: sudo python solarmax-ardexa.py /dev/ttyS0 1-5 /opt/ardexa/solarmax/logs 1 KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
 #
 # For use on Linux systems
 # Make sure the following tools have been installed
@@ -36,14 +36,17 @@ from Supporting import *
 
 # Change these 3 settings to suit your installation, if required
 PIDFILE = 'solarmax-ardexa.pid'
-USAGE = "python solarmax-ardexa.py {serial device} {start address} {end address} {log directory} {Comma separated list of values} eg; python solarmax-ardexa.py /dev/ttyS1 1 13 /opt/ardexa/solarmax KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL"
+USAGE = "sudo python solarmax-ardexa.py {serial device} {Addresses} {log directory} {debug type} {required_csv_value} eg; sudo python solarmax-ardexa.py /dev/ttyS0 1-5 /opt/ardexa/solarmax/logs 1 KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL"
 
+# There are other such as UGD, UI1, UI2, UI3...but not sure what they do
 query_dict = {	'KDY' : 'Energy today (kWh)', 'KDL' : 'Energy yesterday (Wh)', 'KYR' : 'Energy this year (kWh)', 'KLY' : 'Energy last year (kWh)',
 					'KMT' : 'Energy this month (kWh)', 'KLM' : 'Energy last month (kWh)', 'KT0' : 'Total Energy(kWh)', 'IL1' : 'AC Current Phase 1 (A)' , 
 					'IL2' : 'AC Current Phase 2 (A)', 'IL3' : 'AC Current Phase 3 (A)', 'IDC' : 'DC Current (A)', 'PAC' : 'AC Power (W)',
 					'PDC' : 'DC Power (W)', 'PRL' : 'Relative power (%)', 'TNP' : 'Grid period duration',	
 					'TNF' : 'Generated Frequency (Hz)', 'TKK' : 'Inverter Temperature (C)', 'UL1' : 'AC Voltage Phase 1 (V)', 
 					'UL2' : 'AC Voltage Phase 2 (V)', 'UL3' : 'AC Voltage Phase 3 (V)', 'UDC' : 'DC Voltage (V)',
+					'UD01' : 'String 1 Voltage (V)', 'UD02' : 'String 2 Voltage (V)', 'UD03' : 'String 3 Voltage (V)',
+					'ID01' : 'String 1 Current (A)', 'ID02' : 'String 2 Current (A)', 'ID03' : 'String 3 Current (A)',
 					'ADR' : 'Address', 'TYP' : 'Type', 'PIN' : 'Installed Power (W)', 'CAC' : 'Start Ups (?)', 'KHR' : 'Operating Hours', 
 					'SWV' : 'Software Version', 'DDY' : 'Date day', 'DMT' : 'Date month', 'DYR' : 'Date year', 'THR' : 'Time hours',
 					'TMI' : 'Time minutes',	'LAN' : 'Language', 
@@ -55,7 +58,9 @@ query_dict = {	'KDY' : 'Energy today (kWh)', 'KDL' : 'Energy yesterday (Wh)', 'K
 					'SDAT' : 'datetime ?', 'FDAT' : 'datetime ?', 
 					'U_AC' : '?', 'F_AC' : 'Grid Frequency', 'SE1': '', 
 					'U_L1L2' : 'Phase1 to Phase2 Voltage (V)', 'U_L2L3' : 'Phase2 to Phase3 Voltage (V)', 'U_L3L1' : 'Phase3 to Phase1 Voltage (V)'
+
 }
+
 
 alarm_codes = {
           0: 'No Error',
@@ -142,14 +147,15 @@ def convert_value(key,value):
 	
 	# If its a current reading or frequency, divide by 100 to get Amps
 	elif ((key == 'IL2') or (key == 'IL1') or (key == 'IL3') or (key == 'IDC') or
-         (key == 'TNF')):
+         (key == 'TNF') or (key == 'ID01') or (key == 'ID02') or (key == 'ID03')):
 		value_int = int(value, 16)
 		value_fl = float(value_int)/100.0 
 		return (str(value_fl))
 
 	# If its a voltage reading or frequency, divide by 10 to get Volts
 	# Same for "energy today"
-	elif ((key == 'UL2') or (key == 'UL1') or (key == 'UL3') or (key == 'KDY')):
+	elif ((key == 'UL2') or (key == 'UL1') or (key == 'UL3') or (key == 'KDY') or 
+         (key == 'UD01') or (key == 'UD02') or (key == 'UD03')):
 		value_int = int(value, 16)
 		value_fl = float(value_int)/10.0 
 		return (str(value_fl))
@@ -159,6 +165,15 @@ def convert_value(key,value):
 		value_int = int(value, 16)
 		value_fl = float(value_int) /2.0 
 		return (str(value_fl))
+
+	elif (key == 'SYS'):
+		# Check that the SYS value has a comma
+		if (value.find(',') != -1):
+			sys,temp = value.split(',')
+			value_int = int(sys, 16)
+			return status_codes[value_int]
+		else:
+ 			return value
 
 	# If the key is empty, return 'no value'
 	elif (not value):
@@ -185,10 +200,13 @@ def read_values(required_items, raw_line, debug):
 	datetime = time.strftime('%Y-%m-%dT%H:%M:%SZ')
 	data_list.append(datetime)
 
+	if (debug > 1):
+		print "RAW LINE: ",raw_line
+
 	for value in required_items:
 		# Find it in the raw line
 		found = raw_line.find(value)
-		if (found):
+		if (found != -1):
 			# if found, get everything after the '=' sign
 			start = found + len(value) + 1
 			# the end is the first '|' or ';' that appears
@@ -212,13 +230,15 @@ def read_values(required_items, raw_line, debug):
 			# now copy the value
 			converted = convert_value(value,raw_line[start:end])
 			if (debug > 1):
-				print "VALUE: ", value," PIPE: ",found_pipe," SEMI: ",found_semi, "RAW: ", raw_line[start:end], " ITEM: ",converted
+				print "NAME: ", query_dict[value],  "\t\tCODE: ", value,"\t\tPIPE: ",found_pipe,"\t\tSEMI: ",found_semi, "\t\tRAW: ", raw_line[start:end], "\t\tITEM: ",converted, "\t\tANY ERROR: ",errors
 			
 			data_list.append(converted)
 			
 		else:
 			# flag an error
 			errors = True
+			if (debug > 1):
+				print "NAME: ", query_dict[value],  "\t\tCODE: ", value,"  ... has not been found in the received string"
 
 	# NOTE: Don't need the csv module, since the data is all controlled by this function
 	inverter_line = ','.join(data_list)
