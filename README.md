@@ -5,15 +5,14 @@ The purpose of this project is to collect from Solarmax Inverters and send the d
 ## How does it work
 This application is written in Python, to query Solarmax inverters connected via RS485. This application will query 1 or more connected inverters at regular intervals. Data will be written to log files on disk in a directory specified in the script. Usage and command line parameters are as follows:
 
-Usage: sudo python solarmax-ardexa.py {serial device} {Addresses} {log directory} {debug type} {required_csv_value}, where...
+Usage: solarmax_ardexalog {serial device} {Addresses} {log directory} {required_csv_value}, where...
 - {serial device} = ..something lie: /dev/ttyS0
 - {Addresses} = As a range (eg; 1-32) or a list (eg; 2,5,7,9) of the RS485 address
 - {log directory} = logging directory
-- {debug type} = 0 (no messages, except errors), 1 (discovery messages) or 2 (all messages)
 - {required_csv_value} = KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL (these are acronyms which detail which values to call down from the inverter. 
 The actual values which are available are shown in Lin 40 of the script `solarmax-ardexa.py`
-- eg: python solarmax-ardexa.py /dev/ttyS0 1-5 /opt/ardexa/solarmax/logs 1 KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
-
+- eg: `solarmax_ardexa -v log /dev/ttyS0 1-5 /opt/ardexa/solarmax KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL`
+- Note the use of the `-v` option in the above command to show debug messages. Use `-vv` for more verbose debug messages
 
 ## RS485 to USB converter
 Solarmax inverters can use RS485 as a means to communicate data and settings
@@ -57,22 +56,13 @@ sudo apt-get install python-pip
 sudo pip install pyserial
 ```
 
-Then install and run it as follows:
-Note that the applications should be run as root only since needs access to a device in the `/dev` directory. 
-```
-cd
-git https://github.com/ardexa/solarmax-inverters.git
-cd solarmax-inverters
-sudo python solarmax-ardexa.py {serial device} {Addresses} {log directory} {debug type} {required_csv_value}
-...eg: python solarmax-ardexa.py /dev/ttyS0 1-5 /opt/ardexa/solarmax/logs 1 KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
-
-```
+Then install and run it as discussed above.
 
 
 ## Collecting to the Ardexa cloud
 Collecting to the Ardexa cloud is free for up to 3 Raspberry Pis (or equivalent). Ardexa provides free agents for ARM, Intel x86 and MIPS based processors. To collect the data to the Ardexa cloud do the following:
 a. Create a `RUN` scenario to schedule the Ardexa Solarmax script to run at regular intervals (say every 300 seconds/5 minutes).
-b. Then use a `CAPTURE` scenario to collect the csv (comma separated) data from the filename `/opt/ardexa/Solarmax/logs/`. This file contains a header entry (as the first line) that describes the CSV elements of the file.
+b. Then use a `CAPTURE` scenario to collect the csv (comma separated) data from the filename `{log directory}`. This file contains a header entry (as the first line) that describes the CSV elements of the file.
 
 ## Help
 Contact Ardexa at support@ardexa.com, and we'll do our best efforts to help.
