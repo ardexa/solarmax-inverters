@@ -1,4 +1,4 @@
-# Copyright (c) 2013-2018 Ardexa Pty Ltd
+""" Copyright (c) 2013-2018 Ardexa Pty Ltd"""
 #
 # This code is licensed under the MIT License (MIT).
 #
@@ -16,7 +16,8 @@
 #     - {Addresses} = As a range (eg; 1-32) or a list (eg; 2,5,7,9) of the RS485 address
 #     - {log directory} = logging directory
 #     - {debug type} = 0 (no messages, except errors), 1 (discovery messages) or 2 (all messages)
-#     - {required_csv_value} = KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL (these are acronyms which detail which values to call down from the inverter.
+#     - {required_csv_value} = KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
+#       (these are acronyms which detail which values to call down from the inverter.
 # The actual values which are available are shown in Lin 40 of the script `solarmax-ardexa.py`
 #     - eg: sudo python solarmax-ardexa.py /dev/ttyS0 1-5 /opt/ardexa/solarmax/logs 1 KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
 #
@@ -26,6 +27,7 @@
 #        sudo pip install pyserial
 #
 
+from __future__ import print_function
 import sys
 import time
 import os
@@ -33,11 +35,12 @@ import click
 import ardexaplugin as ap
 import serial
 
-DEBUG = 0
+PY3K = sys.version_info >= (3, 0)
 
 # Change these 3 settings to suit your installation, if required
 PIDFILE = 'solarmax-ardexa.pid'
-USAGE = "sudo python solarmax-ardexa.py {serial device} {Addresses} {log directory} {debug type} {required_csv_value} eg; sudo python solarmax-ardexa.py /dev/ttyS0 1-5 /opt/ardexa/solarmax/logs 1 KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL"
+USAGE = "sudo python solarmax-ardexa.py {serial device} {Addresses} {log directory} {debug type} {required_csv_value} \
+        eg; sudo python solarmax-ardexa.py /dev/ttyS0 1-5 /opt/ardexa/solarmax/logs 1 KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL"
 
 # There are other such as UGD, UI1, UI2, UI3...but not sure what they do
 QUERY_DICT = {
@@ -116,67 +119,66 @@ STATUS_CODES = {
 
 #~~~~~~~~~~~~~~~~~~~   START Functions ~~~~~~~~~~~~~~~~~~~~~~~
 
-def write_line(line, inverter_addr, base_directory, header_line):
+def write_line(line, inverter_addr, base_directory, header_line, debug):
     """Write the line to disk"""
     line = line + '\n'
     # Write the log entry, as a date entry in the log directory
     date_str = (time.strftime("%Y-%m-%d"))
     log_filename = date_str + ".csv"
     log_directory = os.path.join(base_directory, inverter_addr)
-    ap.write_log(log_directory, log_filename, header_line, line, DEBUG, True, log_directory, "latest.csv")
+    ap.write_log(log_directory, log_filename, header_line, line, debug, True, log_directory, "latest.csv")
 
     return True
 
 
 def convert_value(key, value):
     """Convert/scale values where required"""
+
+    retval = ''
+
     # If its an alarm code, strip out the first number and find the alarm description
     if key == 'SAL':
         # Strip out the first CSV
         value_int = int(value, 16)
         # then get the string
-        return ALARM_CODES[value_int]
-
+        retval = ALARM_CODES[value_int]
     # If its a current reading or frequency, divide by 100 to get Amps
     elif key in ('IL2', 'IL1', 'IL3', 'IDC', 'TNF', 'ID01', 'ID02', 'ID03'):
         value_int = int(value, 16)
         value_fl = float(value_int)/100.0
-        return str(value_fl)
-
+        retval = str(value_fl)
     # If its a voltage reading or frequency, divide by 10 to get Volts
     # Same for "energy today"
     elif key in ('UL2', 'UL1', 'UL3', 'KDY', 'UD01', 'UD02', 'UD03'):
         value_int = int(value, 16)
         value_fl = float(value_int)/10.0
-        return str(value_fl)
-
+        retval = str(value_fl)
     # If it's a power of frequency reading, then  divide by 2...for some reason
     elif key in ('PAC', 'PDC'):
         value_int = int(value, 16)
         value_fl = float(value_int) /2.0
-        return str(value_fl)
-
+        retval = str(value_fl)
     elif key == 'SYS':
         # Check that the SYS value has a comma
         if value.find(',') != -1:
             sys_val, _ = value.split(',')
             value_int = int(sys_val, 16)
-            return STATUS_CODES[value_int]
+            retval = STATUS_CODES[value_int]
         else:
-            return value
-
+            retval = value
     # If the key is empty, return 'no value'
     elif not value:
-        return ''
-
+        retval = ''
     else:
         value_str = str(int(value, 16))
-        return value_str
+        retval = value_str
+
+    return retval
 
 
 # required_itmes = LIST
 # raw_line = STRING
-def read_values(required_items, raw_line):
+def read_values(required_items, raw_line, debug):
     """Parse the raw line for the required values"""
     # For each 'required_item, find it in the raw_line
     # and strip out everything up to a semi-colon or pipe symbol
@@ -191,7 +193,7 @@ def read_values(required_items, raw_line):
     datetime = ap.get_datetime_str()
     data_list.append(datetime)
 
-    if DEBUG > 1:
+    if debug > 1:
         print("RAW LINE: {}".format(raw_line))
 
     for value in required_items:
@@ -220,27 +222,28 @@ def read_values(required_items, raw_line):
 
             # now copy the value
             converted = convert_value(value, raw_line[start:end])
-            if DEBUG > 1:
-                print("NAME: {}\t\tCODE: {}\t\tPIPE: {}\t\tSEMI: {}\t\tRAW: {}\t\tITEM: {}\t\tANY ERROR: {}".format(QUERY_DICT[value], value, found_pipe, found_semi, raw_line[start:end], converted, errors))
+            if debug > 1:
+                print("NAME: {}\t\tCODE: {}\t\tPIPE: {}\t\tSEMI: {}\t\tRAW: {}\t\tITEM: {}\t\tANY ERROR: {}".\
+                       format(QUERY_DICT[value], value, found_pipe, found_semi, raw_line[start:end], converted, errors))
 
             data_list.append(converted)
 
         else:
             # flag an error
             errors = True
-            if DEBUG > 1:
+            if debug > 1:
                 print("NAME: {}\t\tCODE: {} ... has not been found in the received string".format(QUERY_DICT[value], value))
 
     # NOTE: Don't need the csv module, since the data is all controlled by this function
     inverter_line = ','.join(data_list)
 
-    if DEBUG > 1:
+    if debug > 1:
         print("Raw line: {} and errors: {}".format(inverter_line, errors))
 
     return inverter_line, errors
 
 
-def get_valid_and_header_items(required_values):
+def get_valid_and_header_items(required_values, debug):
     """Determines if all the query codes are valid.
    kreturns: True (if all codes are valid), string of comma joined headers"""
 
@@ -250,7 +253,7 @@ def get_valid_and_header_items(required_values):
     # Check that each type is valid
     for value in required_values:
         if value not in QUERY_DICT:
-            if DEBUG > 1:
+            if debug > 1:
                 print("Value: {} not known".format(value))
             error = True
         else:
@@ -331,7 +334,7 @@ def open_serial_port(serial_dev):
     return serial_port
 
 
-def read_inverter(query_string, serial_port):
+def read_inverter(query_string, serial_port, debug):
     """Send the query to the inverter and read the response"""
 
     # Flush the inputs and outputs
@@ -339,7 +342,7 @@ def read_inverter(query_string, serial_port):
     serial_port.flushOutput()
 
     # Encode the command
-    if DEBUG > 1:
+    if debug > 1:
         print("Sending the command to the RS485 port: {}".format(query_string))
     serial_port.write(query_string)
 
@@ -351,19 +354,26 @@ def read_inverter(query_string, serial_port):
     while serial_port.inWaiting() > 0:
         response += serial_port.readline()
 
-    if DEBUG > 1:
+    if debug > 1:
         print("Received the following data: {}".format(response))
 
     return response
 
 #~~~~~~~~~~~~~~~~~~~   END Functions ~~~~~~~~~~~~~~~~~~~~~~~
 
+class Config(object):
+    """Config object for click"""
+    def __init__(self):
+        self.verbosity = 0
+
+CONFIG = click.make_pass_decorator(Config, ensure=True)
+
 @click.group()
 @click.option('-v', '--verbose', count=True)
-def cli(verbose):
+@CONFIG
+def cli(config, verbose):
     """Command line entry point"""
-    global DEBUG
-    DEBUG = verbose
+    config.verbosity = verbose
 
 
 @cli.command()
@@ -371,7 +381,8 @@ def cli(verbose):
 @click.argument('bus_addresses')
 @click.argument('output_directory')
 @click.argument('required_values_csv')
-def log(serial_device, bus_addresses, output_directory, required_values_csv):
+@CONFIG
+def log(config, serial_device, bus_addresses, output_directory, required_values_csv):
     """Contact each inverter and log the latest readings"""
     # Check script is run as root
     if os.geteuid() != 0:
@@ -384,7 +395,7 @@ def log(serial_device, bus_addresses, output_directory, required_values_csv):
 
     # Check that no other scripts are running
     pidfile = os.path.join(output_directory, PIDFILE)
-    if ap.check_pidfile(pidfile, DEBUG):
+    if ap.check_pidfile(pidfile, config.verbosity):
         print("This script is already running")
         sys.exit(1)
 
@@ -392,7 +403,7 @@ def log(serial_device, bus_addresses, output_directory, required_values_csv):
     required_values = required_values_csv.split(',')
 
     # Make sure the Solarmax query codes are valid. If not, exit
-    retval, header_line = get_valid_and_header_items(required_values)
+    retval, header_line = get_valid_and_header_items(required_values, config.verbosity)
     if not retval:
         print("Some of the Solarmax codes are not valid")
         sys.exit(6)
@@ -411,10 +422,10 @@ def log(serial_device, bus_addresses, output_directory, required_values_csv):
         query_string = construct_inverter_query(inverter_addr, required_values)
 
         while count >= 1:
-            result = read_inverter(query_string, serial_port)
-            inverter_line, errors = read_values(required_values, result)
+            result = read_inverter(query_string, serial_port, config.verbosity)
+            inverter_line, errors = read_values(required_values, result, config.verbosity)
             if not errors:
-                success = write_line(inverter_line, str(inverter_addr), output_directory, header_line)
+                success = write_line(inverter_line, str(inverter_addr), output_directory, header_line, config.verbosity)
                 if success:
                     break
             count = count - 1
@@ -423,13 +434,9 @@ def log(serial_device, bus_addresses, output_directory, required_values_csv):
     serial_port.close()
 
     elapsed_time = time.time() - start_time
-    if DEBUG:
+    if config.verbosity:
         print("This request took: {} seconds.".format(elapsed_time))
 
     # Remove the PID file
     if os.path.isfile(pidfile):
         os.unlink(pidfile)
-
-
-if __name__ == "__main__":
-    cli()
