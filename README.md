@@ -2,6 +2,10 @@
 # Purpose
 The purpose of this project is to collect from Solarmax Inverters and send the data to your cloud using Ardexa. Data from Solarmax solar inverters is read using an RS485 connection and a Linux device such as a Raspberry Pi, or an X86 intel powered computer. 
 
+## Install
+On a raspberry Pi, or other Linux machines (arm, intel, mips or whetever), make sure Python is installed (which it should be). Then install using pip as follows:
+`sudo pip install solarmax-ardexa`
+
 ## How does it work
 This application is written in Python, to query Solarmax inverters connected via RS485. This application will query 1 or more connected inverters at regular intervals. Data will be written to log files on disk in a directory specified in the script. Usage and command line parameters are as follows:
 
@@ -47,16 +51,6 @@ Confirm the physical serial port by running the command `dmesg | grep tty`. As s
 
 ## The Solarmax Protocol
 Solarmax (http://www.solarmax.com/) supply supply retail and commercial grade Solar PV inverters. This python script is designed to collect data from Solarmax inverters, using RS485 connected devices. Contact us to help you with adapting this script to collect from other Solarmax inverters.
-
-## How to use the script
-On a raspberry Pi, or other Linux machines (arm, intel, mips or whetever), make sure Python is installed (which it should be). Then install the `pyserial` dependancies as follows:
-```
-sudo apt-get update
-sudo apt-get install python-pip
-sudo pip install pyserial
-```
-
-Then install and run it as discussed above.
 
 
 ## Collecting to the Ardexa cloud
