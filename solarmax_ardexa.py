@@ -1,4 +1,4 @@
-""" Copyright (c) 2013-2018 Ardexa Pty Ltd"""
+""" Copyright (c) 2013-2019 Ardexa Pty Ltd"""
 #
 # This code is licensed under the MIT License (MIT).
 #
@@ -11,21 +11,6 @@
 # IN THE SOFTWARE.
 #
 
-# Usage: sudo python solarmax-ardexa.py {serial device} {Addresses} {log directory} {debug type} {required_csv_value}, where...
-#     - {serial device} = ..something lie: /dev/ttyS0
-#     - {Addresses} = As a range (eg; 1-32) or a list (eg; 2,5,7,9) of the RS485 address
-#     - {log directory} = logging directory
-#     - {debug type} = 0 (no messages, except errors), 1 (discovery messages) or 2 (all messages)
-#     - {required_csv_value} = KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
-#       (these are acronyms which detail which values to call down from the inverter.
-# The actual values which are available are shown in Lin 40 of the script `solarmax-ardexa.py`
-#     - eg: sudo python solarmax-ardexa.py /dev/ttyS0 1-5 /opt/ardexa/solarmax/logs 1 KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL
-#
-# For use on Linux systems
-# Make sure the following tools have been installed
-#        sudo apt-get install python-pip
-#        sudo pip install pyserial
-#
 
 from __future__ import print_function
 import sys
@@ -344,7 +329,7 @@ def read_inverter(query_string, serial_port, debug):
     # Encode the command
     if debug > 1:
         print("Sending the command to the RS485 port: {}".format(query_string))
-    serial_port.write(query_string)
+    serial_port.write(bytes(query_string))
 
     # wait 1 second. Do not make it less than that
     time.sleep(1)

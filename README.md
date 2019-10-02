@@ -6,6 +6,10 @@ The purpose of this project is to collect from Solarmax Inverters and send the d
 On a raspberry Pi, or other Linux machines (arm, intel, mips or whetever), make sure Python is installed (which it should be). Then install using pip as follows:
 `sudo pip install solarmax-ardexa`
 
+If it is already installed, and you need to upgrade, then do this: 
+`sudo pip install solarmax-ardexa --upgrade`. 
+The latest version of the package can be found here: `https://pypi.org/project/solarmax-ardexa/`
+
 ## How does it work
 This application is written in Python, to query Solarmax inverters connected via RS485. This application will query 1 or more connected inverters at regular intervals. Data will be written to log files on disk in a directory specified in the script. Usage and command line parameters are as follows:
 
@@ -14,7 +18,7 @@ Usage: solarmax_ardexalog {serial device} {Addresses} {log directory} {required_
 - {Addresses} = As a range (eg; 1-32) or a list (eg; 2,5,7,9) of the RS485 address
 - {log directory} = logging directory
 - {required_csv_value} = KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL (these are acronyms which detail which values to call down from the inverter. 
-The actual values which are available are shown starting in Line 43 of the script `solarmax-ardexa.py`
+The actual values which are available are shown starting in Line 47 of the script `solarmax-ardexa.py`
 - eg: `solarmax_ardexa -v log /dev/ttyS0 1-5 /opt/ardexa/solarmax KDY,IL1,IL2,IL3,PAC,PDC,TNF,TKK,SYS,KHR,KMT,KLM,UL1,UL2,UL3,PRL`
 - Note the use of the `-v` option in the above command to show debug messages. Use `-vv` for more verbose debug messages
 
@@ -48,9 +52,6 @@ So to wire it all up:
 - D- Pin from the Solarmax Inverter (should be Pin 7 on the RS485 inverter interface) to Pin 1 of the RS485 DB-9 (Female) on the Advantech UNO 2362G
 
 Confirm the physical serial port by running the command `dmesg | grep tty`. As stated previously, it should return something like `/dev/ttyS1` if using a serial com port, or something like `/dev/ttyUSB0` if using a 485/USB serial converter.
-
-## The Solarmax Protocol
-Solarmax (http://www.solarmax.com/) supply supply retail and commercial grade Solar PV inverters. This python script is designed to collect data from Solarmax inverters, using RS485 connected devices. Contact us to help you with adapting this script to collect from other Solarmax inverters.
 
 
 ## Collecting to the Ardexa cloud
